@@ -1,25 +1,13 @@
 pipeline {
     agent any
-
-    tools {
-        maven 'maven_3_5_2'
-    }
-
     stages {
-        stage('Run SAST Scan') {
-            steps {
-                // Scanner le projet avec SonarQube
-                sh 'mvn clean verify sonar:sonar -Dsonar.projectkey=demo-proj -Dsonar.organization=demo-sast -Dsonar.host.url=https://sonarcloud.io'
-            }
-        }
-
         stage('Run SCA Scan') {
             steps {
-                // Utilisation des credentials Snyk pour l'authentification
-                withCredentials([string(credentialsId: 'Snyk_Token', variable: 'SNYK_TOKEN')]) {
-                    // Lancement du scan Snyk
-                    sh 'snyk auth $SNYK_TOKEN'
-                    sh 'snyk test --all-projects' // Scanne tous les projets ou le répertoire actuel
+                withCredentials([string(credentialsId: 'Snyk_Token', variable: 'Snyk_Token')]) {
+                    script {
+                        sh "snyk auth $Snyk_Token"
+                        sh "snyk test"
+                    }
                 }
             }
         }
