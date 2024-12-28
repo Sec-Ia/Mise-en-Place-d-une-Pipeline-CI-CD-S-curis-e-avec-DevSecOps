@@ -1,48 +1,63 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'maven_3_5_2' // Assurez-vous que cette version est installée dans Jenkins
-    }
-
     environment {
-        GITHUB_REPO = 'https://github.com/Sec-Ia/Mise-en-Place-d-une-Pipeline-CI-CD-S-curis-e-avec-DevSecOps.git'
-        PROJECT_DIR = 'Mise-en-Place-d-une-Pipeline-CI-CD-S-curis-e-avec-DevSecOps'
+        MAVEN_HOME = tool 'Maven 3.8.1'  // Définir la version de Maven
     }
 
     stages {
-        stage('Clone Repository') {
+        stage('Checkout') {
             steps {
-                // Clonez le dépôt GitHub dans le workspace de Jenkins
-                git branch: 'main', url: "${GITHUB_REPO}"
+                // Récupérer le code source depuis le repository
+                checkout scm
             }
         }
 
-        stage('Run SAST Scan') { // Analyse statique avec SonarQube
+        stage('Build') {
             steps {
-                dir("${PROJECT_DIR}") { // Accède au répertoire cloné
-                    sh '''
-                    mvn clean verify sonar:sonar \
-                      -Dsonar.projectKey=demo-proj \
-                      -Dsonar.organization=demo-sast \
-                      -Dsonar.host.url=https://sonarcloud.io \
-                      -Dsonar.login=$SONAR_TOKEN
-                    '''
+                // Compilation et construction de votre projet avec Maven
+                script {
+                    sh "'${MAVEN_HOME}/bin/mvn' clean install"
                 }
             }
         }
 
-        stage('Run SCA Scan') { // Analyse des dépendances avec Snyk
+        stage('Test') {
             steps {
-                withCredentials([string(credentialsId: 'SNYK_TOKEN', variable: 'SNYK_TOKEN')]) {
-                    dir("${PROJECT_DIR}") { // Accède au répertoire cloné
-                        sh '''
-                        snyk auth $SNYK_TOKEN
-                        snyk test --severity-threshold=high
-                        '''
-                    }
+                // Exécution des tests unitaires
+                script {
+                    sh "'${MAVEN_HOME}/bin/mvn' test"
                 }
             }
+        }
+
+        stage('Security Scan') {
+            steps {
+                // Ajouter l'étape pour l'analyse de sécurité avec OWASP Dependency Check ou Snyk
+                script {
+                    sh "'${MAVEN_HOME}/bin/mvn' org.owasp:dependency-check-maven:check"
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                // Déploiement de l'application (exemple pour Tomcat ou autre serveur)
+                script {
+                    sh "'${MAVEN_HOME}/bin/mvn' tomcat8:deploy"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            // Actions à exécuter si le build est réussi
+            echo 'Build and deployment successful.'
+        }
+        failure {
+            // Actions à exécuter en cas d'échec
+            echo 'Build or deployment failed.'
         }
     }
 }
