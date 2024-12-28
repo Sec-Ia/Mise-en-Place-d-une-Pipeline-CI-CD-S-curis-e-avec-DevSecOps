@@ -2,28 +2,45 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven_3_5_2' // Assurez-vous que cette configuration correspond bien à votre instance Jenkins
+        maven 'maven_3_5_2' // Assurez-vous que cette version est installée dans Jenkins
+    }
+
+    environment {
+        GITHUB_REPO = 'https://github.com/Sec-Ia/Mise-en-Place-d-une-Pipeline-CI-CD-S-curis-e-avec-DevSecOps.git'
+        PROJECT_DIR = 'Mise-en-Place-d-une-Pipeline-CI-CD-S-curis-e-avec-DevSecOps'
     }
 
     stages {
-        stage('Run SAST Scan') { // Correction de la syntaxe pour l'étape SAST
+        stage('Clone Repository') {
             steps {
-                sh '''
-                mvn clean verify sonar:sonar \
-                  -Dsonar.projectKey=demo-proj \
-                  -Dsonar.organization=demo-sast \
-                  -Dsonar.host.url=https://sonarcloud.io
-                '''
+                // Clonez le dépôt GitHub dans le workspace de Jenkins
+                git branch: 'main', url: "${GITHUB_REPO}"
             }
         }
 
-        stage('Run SCA Scan') {
+        stage('Run SAST Scan') { // Analyse statique avec SonarQube
+            steps {
+                dir("${PROJECT_DIR}") { // Accède au répertoire cloné
+                    sh '''
+                    mvn clean verify sonar:sonar \
+                      -Dsonar.projectKey=demo-proj \
+                      -Dsonar.organization=demo-sast \
+                      -Dsonar.host.url=https://sonarcloud.io \
+                      -Dsonar.login=$SONAR_TOKEN
+                    '''
+                }
+            }
+        }
+
+        stage('Run SCA Scan') { // Analyse des dépendances avec Snyk
             steps {
                 withCredentials([string(credentialsId: 'SNYK_TOKEN', variable: 'SNYK_TOKEN')]) {
-                    sh '''
-                    snyk auth $SNYK_TOKEN
-                    snyk test --severity-threshold=high
-                    '''
+                    dir("${PROJECT_DIR}") { // Accède au répertoire cloné
+                        sh '''
+                        snyk auth $SNYK_TOKEN
+                        snyk test --severity-threshold=high
+                        '''
+                    }
                 }
             }
         }
