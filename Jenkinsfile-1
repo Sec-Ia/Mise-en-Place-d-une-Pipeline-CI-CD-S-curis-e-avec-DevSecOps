@@ -1,0 +1,21 @@
+pipeline {
+  agent any
+  tools {
+    maven 'maven_3_5_2'
+  }
+  
+  stages {
+    stage ('Run SAST Scan") {
+      steps {
+        sh 'mvn clean verify sonar:sonar -Dsonar.projectkey=demo-proj -Dsonar.organization=demo-sast -Dsonar.host.url=https://sonarcloud.io
+      }
+      }
+    stage ('Run SCA Scan') {
+      steps {
+        withCredentials([string(credentialsId: 'SNYK_TOKEN', variable: 'SYNK_TOKEN')]){
+          sh'mvn synk:test'
+        }
+}
+}
+  }
+}
