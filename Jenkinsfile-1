@@ -1,63 +1,27 @@
 pipeline {
     agent any
 
-    environment {
-        MAVEN_HOME = tool 'Maven 3.8.1'  // Définir la version de Maven
+    tools {
+        maven 'maven_3_5_2'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Run SAST Scan') {
             steps {
-                // Récupérer le code source depuis le repository
-                checkout scm
+                // Scanner le projet avec SonarQube
+                sh 'mvn clean verify sonar:sonar -Dsonar.projectkey=demo-proj -Dsonar.organization=demo-sast -Dsonar.host.url=https://sonarcloud.io'
             }
         }
 
-        stage('Build') {
+        stage('Run SCA Scan') {
             steps {
-                // Compilation et construction de votre projet avec Maven
-                script {
-                    sh "'${MAVEN_HOME}/bin/mvn' clean install"
+                // Utilisation des credentials Snyk pour l'authentification
+                withCredentials([string(credentialsId: 'Snyk_Token', variable: 'SNYK_TOKEN')]) {
+                    // Lancement du scan Snyk
+                    sh 'snyk auth $SNYK_TOKEN'
+                    sh 'snyk test --all-projects' // Scanne tous les projets ou le répertoire actuel
                 }
             }
-        }
-
-        stage('Test') {
-            steps {
-                // Exécution des tests unitaires
-                script {
-                    sh "'${MAVEN_HOME}/bin/mvn' test"
-                }
-            }
-        }
-
-        stage('Security Scan') {
-            steps {
-                // Ajouter l'étape pour l'analyse de sécurité avec OWASP Dependency Check ou Snyk
-                script {
-                    sh "'${MAVEN_HOME}/bin/mvn' org.owasp:dependency-check-maven:check"
-                }
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                // Déploiement de l'application (exemple pour Tomcat ou autre serveur)
-                script {
-                    sh "'${MAVEN_HOME}/bin/mvn' tomcat8:deploy"
-                }
-            }
-        }
-    }
-
-    post {
-        success {
-            // Actions à exécuter si le build est réussi
-            echo 'Build and deployment successful.'
-        }
-        failure {
-            // Actions à exécuter en cas d'échec
-            echo 'Build or deployment failed.'
         }
     }
 }
